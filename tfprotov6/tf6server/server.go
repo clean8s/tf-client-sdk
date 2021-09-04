@@ -16,8 +16,8 @@ import (
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/go-plugin"
 	"github.com/hashicorp/go-uuid"
-	tflog "github.com/hashicorp/terraform-plugin-log"
-	tfsdklog "github.com/hashicorp/terraform-plugin-log/sdk"
+	"github.com/hashicorp/terraform-plugin-log/tflog"
+	"github.com/hashicorp/terraform-plugin-log/tfsdklog"
 	tfaddr "github.com/hashicorp/terraform-registry-address"
 )
 
@@ -158,8 +158,8 @@ type server struct {
 	stopMu sync.Mutex
 	stopCh chan struct{}
 
-	tflogSDKOpts []tfsdklog.Option
-	tflogOpts    []tflog.Option
+	tflogSDKOpts tfsdklog.Options
+	tflogOpts    tflog.Options
 	name         string
 }
 
@@ -196,19 +196,19 @@ func (s *server) loggingContext(ctx context.Context) context.Context {
 	}
 
 	// set up the logger SDK loggers are derived from
-	ctx = tfsdklog.New(ctx, append([]tfsdklog.Option{
+	ctx = tfsdklog.NewRootSDKLogger(ctx, append(tfsdklog.Options{
 		tfsdklog.WithLevelFromEnv("TF", "LOG", "SDK"),
 	}, s.tflogSDKOpts...)...)
 	ctx = tfsdklog.With(ctx, "tf_req_id", reqID)
 	ctx = tfsdklog.With(ctx, "tf_provider_addr", s.name)
 
 	// set up our protocol-level subsystem logger
-	ctx = tfsdklog.NewSubsystem(ctx, tflogSubsystemName, append([]tfsdklog.Option{
+	ctx = tfsdklog.NewSubsystem(ctx, tflogSubsystemName, append(tfsdklog.Options{
 		tfsdklog.WithLevelFromEnv("TF", "LOG", "SDK", "PROTO"),
 	}, s.tflogSDKOpts...)...)
 
 	// set up the provider logger
-	ctx = tflog.New(ctx, s.tflogOpts...)
+	ctx = tfsdklog.NewRootProviderLogger(ctx, s.tflogOpts...)
 	ctx = tflog.With(ctx, "tf_req_id", reqID)
 	ctx = tflog.With(ctx, "tf_provider_addr", s.name)
 	return ctx
@@ -247,11 +247,11 @@ func New(name string, serve tfprotov6.ProviderServer, opts ...ServeOpt) tfplugin
 			panic(err)
 		}
 	}
-	var sdkOptions []tfsdklog.Option
-	var options []tflog.Option
+	var sdkOptions tfsdklog.Options
+	var options tflog.Options
 	if !conf.disableLogInitStderr {
 		sdkOptions = append(sdkOptions, tfsdklog.WithStderrFromInit())
-		options = append(options, tflog.WithStderrFromInit())
+		options = append(options, tfsdklog.WithStderrFromInit())
 	}
 	if conf.disableLogLocation {
 		sdkOptions = append(sdkOptions, tfsdklog.WithoutLocation())
@@ -268,7 +268,7 @@ func New(name string, serve tfprotov6.ProviderServer, opts ...ServeOpt) tfplugin
 	}
 	envVar = strings.ReplaceAll(envVar, "-", "_")
 	if envVar != "" {
-		options = append(options, tflog.WithLogName(envVar), tflog.WithLevelFromEnv("TF", "LOG", "PROVIDER", envVar))
+		options = append(options, tfsdklog.WithLogName(envVar), tflog.WithLevelFromEnv("TF", "LOG", "PROVIDER", envVar))
 	}
 	return &server{
 		downstream:   serve,
