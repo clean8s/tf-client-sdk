@@ -21,7 +21,7 @@ type GRPCProvider = plugin.GRPCProvider
 
 var TF_VERSION = Version
 
-// Creates a Terraform client from a command and/or a RPC port. It's used to access
+// MakeClient creates a Terraform client from a command and/or a RPC port. It's used to access
 // a provider in a clean way.
 //   c := MakeClient(exec.Command("tf-provider-example.exe"), nil)
 //   c.ReadResource(...)
@@ -44,4 +44,30 @@ func MakeClient(cmd *exec.Cmd, rc *goplug.ReattachConfig) *plugin.GRPCProvider {
 	p := raw.(*plugin.GRPCProvider)
 	p.PluginClient = client
 	return p
+}
+
+// MakeClientCustom acts like MakeClient except you can pass
+// your custom ClientConfig. Use MakeClientConfig() for some
+// defaults.
+func MakeClientCustom(config *goplug.ClientConfig) *plugin.GRPCProvider {
+	client := goplug.NewClient(config)
+	rpcClient, err := client.Client()
+	_ = err
+	raw, err := rpcClient.Dispense("provider")
+	p := raw.(*plugin.GRPCProvider)
+	p.PluginClient = client
+	return p
+}
+
+// MakeClientConfig creates a go-plugin ClientConfig object optimal
+// for connecting to a provider.
+func MakeClientConfig() *ClientConfig {
+	config := &goplug.ClientConfig{
+		HandshakeConfig:  plugin.Handshake,
+		AllowedProtocols: []goplug.Protocol{goplug.ProtocolGRPC},
+		Managed:          true,
+		AutoMTLS:         false,
+		VersionedPlugins: plugin.VersionedPlugins,
+		Plugins:          plugin.VersionedPlugins[5],
+	}
 }
