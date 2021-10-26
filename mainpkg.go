@@ -61,7 +61,7 @@ func MakeClientCustom(config *goplug.ClientConfig) *plugin.GRPCProvider {
 
 // MakeClientConfig creates a go-plugin ClientConfig object optimal
 // for connecting to a provider.
-func MakeClientConfig() *ClientConfig {
+func MakeClientConfig() *goplug.ClientConfig {
 	config := &goplug.ClientConfig{
 		HandshakeConfig:  plugin.Handshake,
 		AllowedProtocols: []goplug.Protocol{goplug.ProtocolGRPC},
@@ -70,4 +70,5 @@ func MakeClientConfig() *ClientConfig {
 		VersionedPlugins: plugin.VersionedPlugins,
 		Plugins:          plugin.VersionedPlugins[5],
 	}
+	return config
 }
